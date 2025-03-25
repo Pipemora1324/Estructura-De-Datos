@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PipesMusics</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #121212; color: #fff; margin: 0; padding: 0; }
+        .container { display: flex; flex-direction: row; padding: 20px; }
+        .playlist { flex: 2; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .song-card { background: #1db954; padding: 10px; border-radius: 10px; text-align: center; }
+        .controls, .trash, .current-song { margin: 20px; }
+        button { padding: 5px 10px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; background-color: #282828; color: #fff; }
+        .progress-bar { width: 100%; height: 10px; background: #444; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+        .progress { height: 10px; background: #1db954; border-radius: 5px; width: 0; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center;">PipesMusics</h1>
+    <div class="container">
+        <div class="playlist">
+            {% for song in songs %}
+            <div class="song-card">
+                <p>{{ song }}</p>
+                <audio id="audio-{{ loop.index0 }}" src="{{ url_for('static', filename='music/' + song) }}"></audio>
+                <button onclick="playSong({{ loop.index0 }}, '{{ song }}')">Reproducir</button>
+                <a href="/delete/{{ song }}"><button>Eliminar</button></a>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="current-song">
+            <h2>Reproduciendo: <span id="current-song">{{ current }}</span></h2>
+            <div class="controls">
+                <button onclick="previousSong()">Anterior</button>
+                <button onclick="nextSong()">Siguiente</button>
+            </div>
+            <div class="progress-bar" onclick="setProgress(event)">
+                <div class="progress" id="progress"></div>
+            </div>
+            <audio id="main-player" controls style="width: 100%; margin-top: 10px;"></audio>
+        </div>
+    </div>
+
+    <div class="controls">
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".mp3">
+            <input type="number" name="position" placeholder="Posición en lista (opcional)" min="1">
+            <input type="submit" value="Agregar Canción">
+        </form>
+    </div>
+
+    <div class="trash">
+        <h2>Papelera</h2>
+        {% for song in trash %}
+        <div class="song-card" style="background: #b91d1d;">
+            <p>{{ song }}</p>
+            <a href="/recover/{{ song }}"><button>Recuperar</button></a>
+            <a href="/delete_permanently/{{ song }}"><button style="background-color: #ff3333;">Eliminar Definitivamente</button></a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        let mainPlayer = document.getElementById('main-player');
+
+        function playSong(index, name) {
+            let audio = document.getElementById(`audio-${index}`);
+            mainPlayer.src = audio.src;
+            mainPlayer.play();
+            document.getElementById('current-song').innerText = name;
+            fetch(`/set_current/${name}`);
+        }
+
+        function nextSong() {
+            fetch('/next').then(response => response.json()).then(data => {
+                if (data.song) {
+                    mainPlayer.src = `/static/music/${data.song}`;
+                    mainPlayer.play();
+                    document.getElementById('current-song').innerText = data.song;
+                }
+            });
+        }
+
+        function previousSong() {
+            fetch('/previous').then(response => response.json()).then(data => {
+                if (data.song) {
+                    mainPlayer.src = `/static/music/${data.song}`;
+                    mainPlayer.play();
+                    document.getElementById('current-song').innerText = data.song;
+                }
+            });
+        }
+
+        mainPlayer.ontimeupdate = () => {
+            const progress = document.getElementById('progress');
+            const percentage = (mainPlayer.currentTime / mainPlayer.duration) * 100;
+            progress.style.width = `${percentage}%`;
+        };
+
+        function setProgress(event) {
+            const bar = event.currentTarget;
+            const clickX = event.offsetX;
+            const width = bar.clientWidth;
+            const duration = mainPlayer.duration;
+            mainPlayer.currentTime = (clickX / width) * duration;
+        }
+    </script>
+</body>
+</html>
